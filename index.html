@@ -198,7 +198,9 @@
                 if (!user) return; // Guard operation
                 
                 try {
-                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                    // FIXED: Now points directly to the 'leaderboard' collection
+                    const colRef = collection(db, 'leaderboard'); 
+                    
                     await addDoc(colRef, {
                         playerName: playerName || 'Commuter',
                         score: score,
