@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MRT Dash - Manila Commuter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; touch-action: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #game-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        .pointer-events-auto { pointer-events: auto; }
+        
+        .title-text {
+            text-shadow: 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000, 4px 4px 0px #2563eb;
+        }
+        .pulse-fast { animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas Container -->
+    <div id="game-container"></div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer" class="p-4">
+        
+        <!-- Score & HUD -->
+        <div class="flex flex-col items-start w-full gap-3">
+            <div id="score-container" class="hidden flex gap-4">
+                <div class="bg-white/90 border-4 border-blue-600 rounded-xl px-4 py-2 shadow-lg backdrop-blur-sm">
+                    <p class="text-blue-900 font-bold text-sm uppercase tracking-wider">Distance</p>
+                    <p id="score-display" class="text-2xl font-black text-blue-600">0 m</p>
+                </div>
+                <div class="bg-white/90 border-4 border-cyan-500 rounded-xl px-4 py-2 shadow-lg backdrop-blur-sm">
+                    <p class="text-cyan-900 font-bold text-sm uppercase tracking-wider">Beep Cards</p>
+                    <p id="ticket-display" class="text-2xl font-black text-cyan-600">0</p>
+                </div>
+            </div>
+            
+            <!-- Power-up Status Indicators -->
+            <div id="powerup-status" class="flex gap-2">
+                <div id="shield-status" class="hidden bg-yellow-400/90 border-2 border-yellow-600 rounded-lg px-3 py-1 shadow-md backdrop-blur-sm transition-opacity duration-200">
+                    <p class="text-yellow-900 font-bold text-xs uppercase">Shield <span id="shield-timer">8</span>s</p>
+                </div>
+                <div id="taho-status" class="hidden bg-orange-400/90 border-2 border-orange-600 rounded-lg px-3 py-1 shadow-md backdrop-blur-sm transition-opacity duration-200">
+                    <p class="text-orange-900 font-bold text-xs uppercase">Taho Rush <span id="taho-timer">10</span>s</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto transition-opacity duration-300">
+            <div class="bg-white p-8 rounded-2xl shadow-2xl border-b-8 border-blue-600 max-w-md w-full text-center transform scale-100">
+                <h1 class="text-5xl font-black text-white title-text mb-2 tracking-tighter">MRT DASH</h1>
+                <p class="text-gray-600 font-semibold mb-6 uppercase tracking-widest text-sm">Manila Commuter Rush</p>
+                
+                <!-- Gemini AI Feature: Daily Commuter Fortune -->
+                <div class="mb-4 bg-blue-100/50 p-3 rounded-lg border border-blue-200 min-h-[60px] flex items-center justify-center">
+                    <p id="commuter-vibe" class="text-sm text-blue-800 font-medium italic animate-pulse">✨ Consulting the Quiapo fortune tellers... ✨</p>
+                </div>
+
+                <div class="bg-blue-50 rounded-lg p-4 mb-6 text-left border border-blue-200">
+                    <p class="text-sm text-blue-800 font-bold mb-2">HOW TO PLAY:</p>
+                    <ul class="text-sm text-gray-700 space-y-1 mb-3">
+                        <li><span class="font-bold text-blue-600">← / →</span> or <span class="font-bold text-blue-600">Swipe</span> to change lanes</li>
+                        <li><span class="font-bold text-blue-600">↑</span> or <span class="font-bold text-blue-600">Swipe Up</span> to jump</li>
+                    </ul>
+                    <p class="text-sm text-blue-800 font-bold mb-2">POWER-UPS:</p>
+                    <ul class="text-sm text-gray-700 space-y-1">
+                        <li>🟡 <span class="font-bold text-yellow-600">Shield:</span> Invincibility (8s)</li>
+                        <li>🥤 <span class="font-bold text-orange-600">Taho:</span> 2x Distance Score (10s)</li>
+                    </ul>
+                </div>
+
+                <!-- Add Player Name Input -->
+                <div class="mb-4">
+                    <input type="text" id="player-name" placeholder="Enter your name..." class="w-full px-4 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-600 font-bold text-center text-gray-700" maxlength="12">
+                </div>
+
+                <!-- Leaderboard (Hidden initially until data loads) -->
+                <div class="hidden leaderboard-container mb-4 bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                    <p class="text-sm text-yellow-800 font-bold mb-2 flex items-center justify-center gap-2">
+                        <span>🏆</span> TOP COMMUTERS <span>🏆</span>
+                    </p>
+                    <ul class="leaderboard-list text-sm text-gray-700 space-y-1 text-left">
+                        <!-- Scores injected here -->
+                    </ul>
+                </div>
+
+                <button onclick="startGame()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black text-xl py-4 rounded-xl shadow-[0_6px_0_#1e3a8a] active:shadow-[0_0px_0_#1e3a8a] active:translate-y-[6px] transition-all">
+                    START RUNNING
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-red-900/80 backdrop-blur-md pointer-events-auto">
+            <div class="bg-white p-8 rounded-2xl shadow-2xl border-b-8 border-red-600 max-w-md w-full text-center">
+                <h2 class="text-5xl font-black text-red-600 mb-2 uppercase tracking-tighter">Busted!</h2>
+                <p class="text-gray-600 font-bold mb-2">You hit an obstacle on the tracks.</p>
+
+                <!-- Gemini AI Feature: Dynamic Tito/Tita Roast -->
+                <div class="mb-6 bg-red-50 p-3 rounded-lg border border-red-200 min-h-[60px] flex items-center justify-center">
+                    <p id="game-over-roast" class="text-sm text-red-800 font-medium italic">🎙️ Wait lang, getting Tito's reaction... 🎙️</p>
+                </div>
+
+                <div class="bg-gray-100 rounded-xl p-4 mb-4 border-2 border-gray-200 flex justify-between gap-4">
+                    <div class="flex-1">
+                        <p class="text-gray-500 text-sm font-bold uppercase">Distance</p>
+                        <p id="final-score" class="text-3xl font-black text-gray-800">0 m</p>
+                    </div>
+                    <div class="flex-1 border-l-2 border-gray-300 pl-4">
+                        <p class="text-gray-500 text-sm font-bold uppercase">Beep Cards</p>
+                        <p id="final-tickets" class="text-3xl font-black text-cyan-600">0</p>
+                    </div>
+                </div>
+
+                <!-- Game Over Leaderboard -->
+                <div class="hidden leaderboard-container mb-6 bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                    <p class="text-sm text-yellow-800 font-bold mb-2 flex items-center justify-center gap-2">
+                        <span>🏆</span> TOP COMMUTERS <span>🏆</span>
+                    </p>
+                    <ul class="leaderboard-list text-sm text-gray-700 space-y-1 text-left">
+                        <!-- Scores injected here -->
+                    </ul>
+                </div>
+
+                <button onclick="restartGame()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black text-xl py-4 rounded-xl shadow-[0_6px_0_#1e3a8a] active:shadow-[0_0px_0_#1e3a8a] active:translate-y-[6px] transition-all">
+                    RIDE AGAIN
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Environment variables provided by Canvas
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
+
+            window.initFirebase = async () => {
+                try {
+                    // Authenticate before making queries
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    
+                    const user = auth.currentUser;
+                    if (!user) return;
+
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                    
+                    // Fetch all docs and compute leaderboard top 5 
+                    onSnapshot(colRef, (snapshot) => {
+                        let scores = [];
+                        snapshot.forEach(doc => {
+                            scores.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        // Sort by score descending in memory
+                        scores.sort((a, b) => b.score - a.score);
+                        
+                        // Get top 5
+                        const topScores = scores.slice(0, 5);
+                        window.updateLeaderboardUI(topScores);
+                    }, (error) => {
+                        console.error("Error fetching leaderboard:", error);
+                    });
+
+                } catch (e) {
+                    console.error("Firebase Auth Error:", e);
+                }
+            };
+
+            window.saveScoreToCloud = async (playerName, score, tickets) => {
+                const user = auth.currentUser;
+                if (!user) return; // Guard operation
+                
+                try {
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                    await addDoc(colRef, {
+                        playerName: playerName || 'Commuter',
+                        score: score,
+                        tickets: tickets,
+                        timestamp: Date.now(),
+                        userId: user.uid
+                    });
+                } catch (e) {
+                    console.error("Error saving score:", e);
+                }
+            };
+
+            // Start Firebase immediately
+            window.initFirebase();
+        }
+    </script>
+
+    <script>
+        // --- Game Variables ---
+        let scene, camera, renderer;
+        let player, playerBody, playerHead, leftArm, rightArm, leftLeg, rightLeg, playerAura;
+        let obstacles = [];
+        let sleepers = [];
+        let buildings = [];
+        let collectibles = [];
+        let powerUps = [];
+        let pillars = [];
+        let roadLines = [];
+        
+        let isGameRunning = false;
+        let score = 0;
+        let tickets = 0;
+        let speed = 0.5;
+        let frames = 0;
+        let animationId;
+
+        // Power-up States
+        let isInvincible = false;
+        let shieldTimer = 0;
+        let scoreMultiplier = 1;
+        let tahoTimer = 0;
+
+        // Player movement state
+        const laneWidth = 2.5;
+        let currentLane = 0; // -1 (left), 0 (middle), 1 (right)
+        let targetX = 0;
+        
+        // Jump state
+        let isJumping = false;
+        let yVelocity = 0;
+        const jumpStrength = 0.5;
+        const gravity = 0.03;
+        const basePlayerY = 0; // Offset managed in group
+
+        // DOM Elements
+        const scoreDisplay = document.getElementById('score-display');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const ticketDisplay = document.getElementById('ticket-display');
+        const finalTicketDisplay = document.getElementById('final-tickets');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const scoreContainer = document.getElementById('score-container');
+        
+        const shieldStatus = document.getElementById('shield-status');
+        const shieldTimerDisplay = document.getElementById('shield-timer');
+        const tahoStatus = document.getElementById('taho-status');
+        const tahoTimerDisplay = document.getElementById('taho-timer');
+
+        // AI DOM Elements
+        const commuterVibeEl = document.getElementById('commuter-vibe');
+        const gameOverRoastEl = document.getElementById('game-over-roast');
+
+        // Leaderboard UI Updater (called from Firebase Module)
+        window.updateLeaderboardUI = (scores) => {
+            const containers = document.querySelectorAll('.leaderboard-container');
+            const lists = document.querySelectorAll('.leaderboard-list');
+            
+            if (scores.length > 0) {
+                containers.forEach(c => c.classList.remove('hidden'));
+                
+                const html = scores.map((s, index) => `
+                    <li class="flex justify-between items-center border-b border-yellow-200/50 py-1 last:border-0">
+                        <span class="font-bold truncate w-2/3">#${index + 1} ${s.playerName || 'Anonymous'}</span>
+                        <span class="font-black text-blue-600">${s.score}m</span>
+                    </li>
+                `).join('');
+                
+                lists.forEach(l => l.innerHTML = html);
+            }
+        };
+
+        // --- Gemini API Logic ---
+        async function callGeminiAPI(prompt) {
+            const apiKey = "AIzaSyBZP_1kAbxF9i7tx04YcZf2tSGv07v1SMo"; // Handled automatically by Canvas
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    temperature: 0.8, // Slightly creative
+                }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (result.candidates && result.candidates[0] && result.candidates[0].content) {
+                    return result.candidates[0].content.parts[0].text;
+                }
+                return null;
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                return null;
+            }
+        }
+
+        async function generateVibeCheck() {
+            commuterVibeEl.innerText = "✨ Consulting the Quiapo fortune tellers... ✨";
+            commuterVibeEl.classList.add("animate-pulse");
+            
+            const prompt = `Act as a funny Filipino commuter fortune teller. Give a 1-sentence funny 'commuter fortune' or 'vibe check' for someone about to run to catch the MRT in Manila. Keep it very short (max 15 words) and use Taglish. Example: 'Wag kalimutan ang payong, uulan ng kamalasan today!' or 'Pila pa lang pagod ka na, fighting!'`;
+            
+            const responseText = await callGeminiAPI(prompt);
+            
+            commuterVibeEl.classList.remove("animate-pulse");
+            if (responseText) {
+                // Clean up quotes if the LLM adds them
+                commuterVibeEl.innerText = `"${responseText.replace(/^["']|["']$/g, '').trim()}"`;
+            } else {
+                commuterVibeEl.innerText = '"Bawal tamarin, may pasok pa. Takbo!"';
+            }
+        }
+
+        async function generateGameOverRoast(finalScore, finalTickets) {
+            gameOverRoastEl.innerText = "🎙️ Wait lang, getting Tito's reaction... 🎙️";
+            
+            const prompt = `Act as a sarcastic but loving Filipino Tito/Tita or bystander. The player just died in an MRT running game with a distance of ${finalScore} meters and collected ${finalTickets} Beep cards. Give a 1-sentence funny reaction to their performance. Taglish is preferred. Max 20 words. Example: 'Sus, ${finalScore}m lang? Mas malayo pa nilakad ko nung 90s!'`;
+            
+            const responseText = await callGeminiAPI(prompt);
+            
+            if (responseText) {
+                gameOverRoastEl.innerText = `"${responseText.replace(/^["']|["']$/g, '').trim()}"`;
+            } else {
+                gameOverRoastEl.innerText = '"Sayang! Mag-jeep ka na lang next time!"';
+            }
+        }
+
+        // --- Initialization ---
+        function init() {
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xff9966); // Warm Manila sunset
+            scene.fog = new THREE.Fog(0xff9966, 40, 100); // Extended fog distance
+
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 4, 8);
+            camera.lookAt(0, 0, -5);
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('game-container').appendChild(renderer.domElement);
+
+            // Lighting (Warmer sunset lighting)
+            const ambientLight = new THREE.AmbientLight(0x667799, 0.8); // Cool blue-ish shadows
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffddaa, 0.8); // Warm orange sun
+            dirLight.position.set(-15, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.top = 20;
+            dirLight.shadow.camera.bottom = -20;
+            dirLight.shadow.camera.left = -20;
+            dirLight.shadow.camera.right = 20;
+            scene.add(dirLight);
+
+            // Creation
+            createEnvironment();
+            createPlayer();
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize, false);
+            setupControls();
+            
+            // Initial render before start
+            renderer.render(scene, camera);
+
+            // Fetch initial vibe check
+            generateVibeCheck();
+        }
+
+        function createEnvironment() {
+            // 1. Ground / Road (EDSA below)
+            const groundGeo = new THREE.PlaneGeometry(200, 200);
+            const groundMat = new THREE.MeshLambertMaterial({ color: 0x2a2a2a }); // Dark asphalt
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -10;
+            scene.add(ground);
+
+            // Moving road markings (Dashed white lines)
+            const lineGeo = new THREE.PlaneGeometry(0.4, 4);
+            const lineMat = new THREE.MeshBasicMaterial({ color: 0xdddddd });
+            for (let i = 0; i < 15; i++) {
+                // Left lane divider
+                let lineL = new THREE.Mesh(lineGeo, lineMat);
+                lineL.rotation.x = -Math.PI / 2;
+                lineL.position.set(-4, -9.9, -i * 12);
+                scene.add(lineL);
+                roadLines.push(lineL);
+
+                // Right lane divider
+                let lineR = new THREE.Mesh(lineGeo, lineMat);
+                lineR.rotation.x = -Math.PI / 2;
+                lineR.position.set(4, -9.9, -i * 12);
+                scene.add(lineR);
+                roadLines.push(lineR);
+            }
+
+            // 2. Elevated Track Base (Concrete)
+            const trackGeo = new THREE.BoxGeometry(laneWidth * 3.5, 1, 120);
+            const trackMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
+            const track = new THREE.Mesh(trackGeo, trackMat);
+            track.position.y = -0.5;
+            track.position.z = -30;
+            track.receiveShadow = true;
+            scene.add(track);
+
+            // 3. Track Side Barriers (Parapets)
+            const barrierGeo = new THREE.BoxGeometry(0.4, 1.2, 120);
+            const barrierMat = new THREE.MeshLambertMaterial({ color: 0x666666 });
+            
+            const leftBarrier = new THREE.Mesh(barrierGeo, barrierMat);
+            leftBarrier.position.set(-laneWidth * 1.8, 0.1, -30);
+            scene.add(leftBarrier);
+            
+            const rightBarrier = new THREE.Mesh(barrierGeo, barrierMat);
+            rightBarrier.position.set(laneWidth * 1.8, 0.1, -30);
+            scene.add(rightBarrier);
+
+            // 4. Concrete Pillars supporting the track
+            const pillarGeo = new THREE.CylinderGeometry(1.5, 1.5, 10, 16);
+            const pillarMat = new THREE.MeshLambertMaterial({ color: 0x5a5a5a });
+            for (let i = 0; i < 10; i++) {
+                const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+                pillar.position.set(0, -5.5, -i * 20); // Spans from ground to track
+                scene.add(pillar);
+                pillars.push(pillar);
+            }
+
+            // 5. Rails (Dark iron lines)
+            const railGeo = new THREE.BoxGeometry(0.1, 0.1, 120);
+            const railMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+            for (let lane = -1; lane <= 1; lane++) {
+                const leftRail = new THREE.Mesh(railGeo, railMat);
+                leftRail.position.set(lane * laneWidth - 0.6, 0.05, -30);
+                scene.add(leftRail);
+
+                const rightRail = new THREE.Mesh(railGeo, railMat);
+                rightRail.position.set(lane * laneWidth + 0.6, 0.05, -30);
+                scene.add(rightRail);
+            }
+
+            // 6. Create initial sleepers
+            const sleeperGeo = new THREE.BoxGeometry(laneWidth * 3.2, 0.05, 0.4);
+            const sleeperMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
+            
+            for (let i = 0; i < 20; i++) {
+                const sleeper = new THREE.Mesh(sleeperGeo, sleeperMat);
+                sleeper.position.set(0, 0.02, -i * 3);
+                scene.add(sleeper);
+                sleepers.push(sleeper);
+            }
+
+            // 7. Background City Buildings
+            const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
+            const buildingMats = [
+                new THREE.MeshLambertMaterial({ color: 0x9ca3af }),
+                new THREE.MeshLambertMaterial({ color: 0xd1d5db }),
+                new THREE.MeshLambertMaterial({ color: 0x4b5563 }), // Darker gray
+                new THREE.MeshLambertMaterial({ color: 0x1f2937 })  // Almost black silhouette
+            ];
+
+            for (let i = 0; i < 35; i++) {
+                const mat = buildingMats[Math.floor(Math.random() * buildingMats.length)];
+                const b = new THREE.Mesh(buildingGeo, mat);
+                
+                // Buildings must be much taller to reach up from the ground (-10)
+                const w = 4 + Math.random() * 8;
+                const h = 25 + Math.random() * 40; 
+                const d = 4 + Math.random() * 8;
+                b.scale.set(w, h, d);
+                
+                const side = Math.random() > 0.5 ? 1 : -1;
+                const xPos = side * (15 + Math.random() * 20); // Pushed further out
+                const zPos = 10 - Math.random() * 100;
+                
+                b.position.set(xPos, -10 + h/2, zPos); // Base rests on the ground at -10
+                scene.add(b);
+                buildings.push(b);
+            }
+        }
+
+        function createPlayer() {
+            player = new THREE.Group();
+
+            const skinMat = new THREE.MeshLambertMaterial({ color: 0xffd3b6 }); // Skin tone
+            const shirtMat = new THREE.MeshLambertMaterial({ color: 0x1e40af }); // Blue shirt
+            const pantsMat = new THREE.MeshLambertMaterial({ color: 0x111827 }); // Dark pants
+
+            // Head
+            const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            playerHead = new THREE.Mesh(headGeo, skinMat);
+            playerHead.position.y = 1.65;
+            playerHead.castShadow = true;
+            
+            // Body (Polo shirt)
+            const bodyGeo = new THREE.BoxGeometry(0.6, 0.8, 0.4);
+            playerBody = new THREE.Mesh(bodyGeo, shirtMat);
+            playerBody.position.y = 1.0;
+            playerBody.castShadow = true;
+
+            // Limbs Helper (Pivots at the top joint)
+            function createLimb(width, length, depth, material) {
+                const geo = new THREE.BoxGeometry(width, length, depth);
+                geo.translate(0, -length / 2, 0); 
+                const mesh = new THREE.Mesh(geo, material);
+                mesh.castShadow = true;
+                return mesh;
+            }
+
+            // Arms
+            leftArm = createLimb(0.2, 0.7, 0.2, skinMat);
+            leftArm.position.set(-0.4, 1.4, 0); 
+            
+            rightArm = createLimb(0.2, 0.7, 0.2, skinMat);
+            rightArm.position.set(0.4, 1.4, 0); 
+
+            // Legs
+            leftLeg = createLimb(0.25, 0.8, 0.25, pantsMat);
+            leftLeg.position.set(-0.15, 0.6, 0); 
+            
+            rightLeg = createLimb(0.25, 0.8, 0.25, pantsMat);
+            rightLeg.position.set(0.15, 0.6, 0); 
+
+            // Protective Aura (Hidden by default)
+            const auraGeo = new THREE.SphereGeometry(1.2, 16, 16);
+            const auraMat = new THREE.MeshBasicMaterial({ 
+                color: 0xfacc15, 
+                transparent: true, 
+                opacity: 0.4,
+                wireframe: true
+            });
+            playerAura = new THREE.Mesh(auraGeo, auraMat);
+            playerAura.position.y = 1.0;
+            playerAura.visible = false;
+
+            player.add(playerHead);
+            player.add(playerBody);
+            player.add(leftArm);
+            player.add(rightArm);
+            player.add(leftLeg);
+            player.add(rightLeg);
+            player.add(playerAura);
+
+            player.position.set(0, basePlayerY, 0);
+            scene.add(player);
+        }
+
+        // --- Controls Setup ---
+        function setupControls() {
+            // Keyboard
+            window.addEventListener('keydown', (e) => {
+                if (!isGameRunning) return;
+                
+                if (e.code === 'ArrowLeft' || e.code === 'KeyA') moveLane(-1);
+                else if (e.code === 'ArrowRight' || e.code === 'KeyD') moveLane(1);
+                else if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') jump();
+            });
+
+            // Touch / Swipe
+            let touchStartX = 0;
+            let touchStartY = 0;
+
+            window.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+                touchStartY = e.changedTouches[0].screenY;
+            }, {passive: false});
+
+            window.addEventListener('touchend', (e) => {
+                if (!isGameRunning) return;
+                
+                let touchEndX = e.changedTouches[0].screenX;
+                let touchEndY = e.changedTouches[0].screenY;
+                
+                let deltaX = touchEndX - touchStartX;
+                let deltaY = touchEndY - touchStartY;
+
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    if (Math.abs(deltaX) > 30) {
+                        if (deltaX > 0) moveLane(1); 
+                        else moveLane(-1); 
+                    }
+                } else {
+                    if (deltaY < -30) jump(); // Swipe Up
+                }
+            }, {passive: false});
+        }
+
+        function moveLane(direction) {
+            currentLane += direction;
+            if (currentLane < -1) currentLane = -1;
+            if (currentLane > 1) currentLane = 1;
+            targetX = currentLane * laneWidth;
+        }
+
+        function jump() {
+            if (!isJumping) {
+                isJumping = true;
+                yVelocity = jumpStrength;
+            }
+        }
+
+        // --- Object Generation ---
+        function spawnObstacle() {
+            const spawnRate = Math.max(15, Math.floor(50 - speed * 25));
+            if (frames % spawnRate !== 0) return;
+
+            let obstacleCount = 1;
+            // Introduce double obstacles as score goes up to block multiple lanes
+            if (score > 100 && Math.random() < 0.25) obstacleCount = 2;
+            if (score > 300 && Math.random() < 0.45) obstacleCount = 2;
+
+            let availableLanes = [-1, 0, 1];
+
+            for (let i = 0; i < obstacleCount; i++) {
+                const laneIndex = Math.floor(Math.random() * availableLanes.length);
+                const lane = availableLanes.splice(laneIndex, 1)[0]; 
+                const type = Math.random() > 0.7 ? 'barrier' : 'train'; 
+                
+                let obs = new THREE.Group();
+                
+                if (type === 'train') {
+                    const bodyGeo = new THREE.BoxGeometry(2, 2.2, 10);
+                    const bodyMat = new THREE.MeshLambertMaterial({ color: 0xe5e7eb });
+                    const body = new THREE.Mesh(bodyGeo, bodyMat);
+                    body.position.y = 1.1;
+                    body.castShadow = true;
+
+                    const stripeGeo = new THREE.BoxGeometry(2.05, 0.4, 10.05);
+                    const stripeMat = new THREE.MeshLambertMaterial({ color: 0x2563eb });
+                    const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+                    stripe.position.y = 0.8;
+
+                    const windowGeo = new THREE.BoxGeometry(2.1, 0.6, 8); 
+                    const windowMat = new THREE.MeshLambertMaterial({ color: 0x111827 }); 
+                    const trainWindow = new THREE.Mesh(windowGeo, windowMat);
+                    trainWindow.position.y = 1.6; 
+
+                    obs.add(body);
+                    obs.add(stripe);
+                    obs.add(trainWindow);
+                    obs.userData = { type: 'train', hitBox: new THREE.Box3() };
+                } else {
+                    const baseGeo = new THREE.BoxGeometry(2.2, 0.8, 0.5);
+                    const baseMat = new THREE.MeshLambertMaterial({ color: 0xf97316 }); 
+                    const base = new THREE.Mesh(baseGeo, baseMat);
+                    base.position.y = 0.4;
+                    base.castShadow = true;
+
+                    obs.add(base);
+                    obs.userData = { type: 'barrier', hitBox: new THREE.Box3() };
+                }
+
+                obs.position.set(lane * laneWidth, 0, -80);
+                scene.add(obs);
+                obstacles.push(obs);
+            }
+        }
+
+        function spawnCollectible() {
+            if (frames % 40 !== 0) return;
+            if (Math.random() > 0.6) return;
+
+            const lane = Math.floor(Math.random() * 3) - 1;
+            const cardGeo = new THREE.BoxGeometry(0.8, 0.5, 0.1);
+            const cardMat = new THREE.MeshLambertMaterial({ color: 0x06b6d4 });
+            const card = new THREE.Mesh(cardGeo, cardMat);
+            
+            const isHigh = Math.random() > 0.5;
+            card.position.set(lane * laneWidth, isHigh ? 1.8 : 0.6, -80);
+            card.userData = { hitBox: new THREE.Box3() };
+            
+            scene.add(card);
+            collectibles.push(card);
+        }
+
+        function spawnPowerUp() {
+            // Power-ups spawn much less frequently than cards
+            if (frames % 300 !== 0) return;
+            if (Math.random() > 0.5) return; 
+
+            const lane = Math.floor(Math.random() * 3) - 1;
+            const type = Math.random() > 0.5 ? 'shield' : 'taho';
+            let item;
+
+            if (type === 'taho') {
+                // Taho Cup (White cup with brown syrup)
+                item = new THREE.Group();
+                const cupGeo = new THREE.CylinderGeometry(0.3, 0.2, 0.6, 16);
+                const cupMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+                const cup = new THREE.Mesh(cupGeo, cupMat);
+                
+                const syrupGeo = new THREE.CylinderGeometry(0.28, 0.18, 0.2, 16);
+                const syrupMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 }); 
+                const syrup = new THREE.Mesh(syrupGeo, syrupMat);
+                syrup.position.y = -0.15;
+                
+                item.add(cup);
+                item.add(syrup);
+                item.userData = { type: 'taho', hitBox: new THREE.Box3() };
+            } else {
+                // Shield Orb
+                const orbGeo = new THREE.SphereGeometry(0.4, 16, 16);
+                const orbMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+                item = new THREE.Mesh(orbGeo, orbMat);
+                item.userData = { type: 'shield', hitBox: new THREE.Box3() };
+            }
+
+            const isHigh = Math.random() > 0.5;
+            item.position.set(lane * laneWidth, isHigh ? 1.8 : 0.6, -80);
+            
+            scene.add(item);
+            powerUps.push(item);
+        }
+
+        function activatePowerUp(type) {
+            if (type === 'shield') {
+                isInvincible = true;
+                shieldTimer = 480; // 8 seconds at ~60fps
+                playerAura.visible = true;
+                shieldStatus.classList.remove('hidden');
+            } else if (type === 'taho') {
+                scoreMultiplier = 2;
+                tahoTimer = 600; // 10 seconds at ~60fps
+                tahoStatus.classList.remove('hidden');
+            }
+        }
+
+        // --- Core Game Loop ---
+        function updatePhysics() {
+            // 1. Move Player
+            player.position.x += (targetX - player.position.x) * 0.15;
+
+            // 2. Jump Physics & Animation
+            if (isJumping) {
+                player.position.y += yVelocity;
+                yVelocity -= gravity;
+
+                leftArm.rotation.x = -Math.PI / 4;
+                rightArm.rotation.x = -Math.PI / 4;
+                leftLeg.rotation.x = Math.PI / 6;
+                rightLeg.rotation.x = -Math.PI / 6;
+
+                if (player.position.y <= basePlayerY) {
+                    player.position.y = basePlayerY;
+                    isJumping = false;
+                    yVelocity = 0;
+                }
+            } else {
+                const runCycle = frames * 0.4;
+                player.position.y = basePlayerY + Math.abs(Math.sin(runCycle)) * 0.1;
+                leftArm.rotation.x = Math.sin(runCycle) * 0.8;
+                rightArm.rotation.x = -Math.sin(runCycle) * 0.8;
+                leftLeg.rotation.x = -Math.sin(runCycle) * 0.8;
+                rightLeg.rotation.x = Math.sin(runCycle) * 0.8;
+            }
+
+            // 3. Move Environment
+            sleepers.forEach(sleeper => {
+                sleeper.position.z += speed;
+                if (sleeper.position.z > 5) sleeper.position.z -= 60;
+            });
+
+            pillars.forEach(pillar => {
+                pillar.position.z += speed;
+                if (pillar.position.z > 15) pillar.position.z -= 200; // Loop pillars back
+            });
+
+            roadLines.forEach(line => {
+                line.position.z += speed;
+                if (line.position.z > 15) line.position.z -= 180; // Loop dashed lines
+            });
+
+            buildings.forEach(b => {
+                b.position.z += speed * 0.5;
+                if (b.position.z > 20) {
+                    b.position.z -= 100;
+                    b.scale.y = 25 + Math.random() * 40;
+                    b.position.y = -10 + b.scale.y / 2; // Keep base on ground
+                }
+            });
+
+            // Strict manual Hitbox Setup to completely fix phantom collisions
+            const hitBoxWidth = 0.8;
+            const hitBoxHeight = 1.8;
+            const hitBoxDepth = 0.6;
+            
+            const playerBox = new THREE.Box3(
+                new THREE.Vector3(player.position.x - hitBoxWidth/2, player.position.y, player.position.z - hitBoxDepth/2),
+                new THREE.Vector3(player.position.x + hitBoxWidth/2, player.position.y + hitBoxHeight, player.position.z + hitBoxDepth/2)
+            );
+
+            // 4. Update Obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.position.z += (obs.userData.type === 'train') ? speed * 1.5 : speed;
+                obs.userData.hitBox.setFromObject(obs);
+                obs.userData.hitBox.expandByScalar(-0.1);
+
+                if (!isInvincible && playerBox.intersectsBox(obs.userData.hitBox)) {
+                    gameOver();
+                    return;
+                }
+
+                if (obs.position.z > 10) {
+                    scene.remove(obs);
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            // 5. Update Collectibles
+            for (let i = collectibles.length - 1; i >= 0; i--) {
+                const card = collectibles[i];
+                card.position.z += speed; 
+                card.rotation.y += 0.05;  
+                card.userData.hitBox.setFromObject(card);
+                
+                if (playerBox.intersectsBox(card.userData.hitBox)) {
+                    tickets++;
+                    ticketDisplay.innerText = tickets;
+                    scene.remove(card);
+                    collectibles.splice(i, 1);
+                    continue; 
+                }
+                
+                if (card.position.z > 10) {
+                    scene.remove(card);
+                    collectibles.splice(i, 1);
+                }
+            }
+
+            // 6. Update Power-ups
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                const pu = powerUps[i];
+                pu.position.z += speed;
+                pu.rotation.y += 0.02;
+                if (pu.userData.type === 'shield') {
+                    pu.scale.setScalar(1 + Math.sin(frames * 0.1) * 0.1);
+                }
+                
+                pu.userData.hitBox.setFromObject(pu);
+                
+                if (playerBox.intersectsBox(pu.userData.hitBox)) {
+                    activatePowerUp(pu.userData.type);
+                    scene.remove(pu);
+                    powerUps.splice(i, 1);
+                    continue;
+                }
+                
+                if (pu.position.z > 10) {
+                    scene.remove(pu);
+                    powerUps.splice(i, 1);
+                }
+            }
+
+            // 7. Handle Power-up Timers
+            if (isInvincible) {
+                shieldTimer--;
+                playerAura.rotation.y += 0.05;
+                playerAura.rotation.z += 0.05;
+                shieldTimerDisplay.innerText = Math.ceil(shieldTimer / 60);
+                
+                if (shieldTimer < 120) playerAura.visible = frames % 10 < 5; // Blink warning
+                if (shieldTimer <= 0) {
+                    isInvincible = false;
+                    playerAura.visible = false;
+                    shieldStatus.classList.add('hidden');
+                }
+            }
+
+            if (scoreMultiplier > 1) {
+                tahoTimer--;
+                tahoTimerDisplay.innerText = Math.ceil(tahoTimer / 60);
+                if (tahoTimer <= 0) {
+                    scoreMultiplier = 1;
+                    tahoStatus.classList.add('hidden');
+                }
+            }
+        }
+
+        function animate() {
+            if (!isGameRunning) return; 
+
+            animationId = requestAnimationFrame(animate);
+            frames++;
+            
+            speed += 0.00015; // Increased acceleration
+            if (speed > 1.2) speed = 1.2; // Speed cap to maintain playability
+
+            if (frames % 5 === 0) {
+                score += (1 * scoreMultiplier); 
+                scoreDisplay.innerText = score + ' m';
+            }
+
+            spawnObstacle();
+            spawnCollectible();
+            spawnPowerUp();
+            updatePhysics();
+
+            renderer.render(scene, camera);
+        }
+
+        // --- Game Flow Controls ---
+        function startGame() {
+            startScreen.classList.add('opacity-0');
+            setTimeout(() => {
+                startScreen.classList.add('hidden');
+                startScreen.classList.remove('opacity-0');
+            }, 300);
+            
+            scoreContainer.classList.remove('hidden');
+            resetGame();
+            isGameRunning = true;
+            animate();
+        }
+
+        function restartGame() {
+            if (isGameRunning) return; // Prevent duplicate clicks
+            cancelAnimationFrame(animationId); // Clear any stalled game loops
+            
+            gameOverScreen.classList.add('hidden');
+            resetGame();
+            isGameRunning = true;
+            animate(); 
+        }
+
+        function gameOver() {
+            isGameRunning = false;
+            cancelAnimationFrame(animationId);
+            finalScoreDisplay.innerText = score + ' m';
+            finalTicketDisplay.innerText = tickets;
+            
+            // This is where the error occurred
+            if(gameOverScreen) {
+                gameOverScreen.classList.remove('hidden');
+                // Trigger the Gemini Roast
+                generateGameOverRoast(score, tickets);
+            }
+            
+            // Save score to leaderboard
+            if (window.saveScoreToCloud && score > 0) {
+                const nameInput = document.getElementById('player-name');
+                let pName = nameInput ? nameInput.value.trim() : "";
+                if (!pName) pName = "Commuter" + Math.floor(Math.random() * 1000);
+                window.saveScoreToCloud(pName, score, tickets);
+            }
+            
+            player.rotation.x = -Math.PI / 2;
+            player.position.y = 0.5;
+            renderer.render(scene, camera); 
+        }
+
+        function resetGame() {
+            score = 0;
+            tickets = 0;
+            speed = 0.4;
+            frames = 0;
+            currentLane = 0;
+            targetX = 0;
+            isJumping = false;
+            yVelocity = 0;
+            
+            isInvincible = false;
+            shieldTimer = 0;
+            scoreMultiplier = 1;
+            tahoTimer = 0;
+            
+            scoreDisplay.innerText = '0 m';
+            ticketDisplay.innerText = '0';
+            shieldStatus.classList.add('hidden');
+            tahoStatus.classList.add('hidden');
+
+            player.position.set(0, basePlayerY, 0);
+            player.rotation.x = 0;
+            playerAura.visible = false;
+
+            obstacles.forEach(obs => scene.remove(obs));
+            obstacles = [];
+            collectibles.forEach(card => scene.remove(card));
+            collectibles = [];
+            powerUps.forEach(pu => scene.remove(pu));
+            powerUps = [];
+            
+            sleepers.forEach((sleeper, i) => {
+                sleeper.position.z = -i * 3;
+            });
+
+            pillars.forEach((pillar, i) => {
+                pillar.position.z = -i * 20;
+            });
+
+            let lineIndex = 0;
+            for (let i = 0; i < 15; i++) {
+                roadLines[lineIndex++].position.z = -i * 12;
+                roadLines[lineIndex++].position.z = -i * 12;
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
