@@ -143,7 +143,14 @@
 
         // Environment variables provided by Canvas
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const firebaseConfig = {
+  apiKey: "AIzaSyBn3hHC3k6xEFuIiWIXbohfNgBi08xbrCQ",
+  authDomain: "mrt-dash.firebaseapp.com",
+  projectId: "mrt-dash",
+  storageBucket: "mrt-dash.firebasestorage.app",
+  messagingSenderId: "811744197055",
+  appId: "1:811744197055:web:fecd91b829b0cc4ac2c90a"
+};
         
         if (firebaseConfig) {
             const app = initializeApp(firebaseConfig);
@@ -162,7 +169,7 @@
                     const user = auth.currentUser;
                     if (!user) return;
 
-                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                    const colRef = collection(db,'leaderboard');
                     
                     // Fetch all docs and compute leaderboard top 5 
                     onSnapshot(colRef, (snapshot) => {
