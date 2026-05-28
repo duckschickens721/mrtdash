@@ -53,7 +53,7 @@
 
         <!-- Start Screen -->
         <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto transition-opacity duration-300">
-            <div class="bg-white p-8 rounded-2xl shadow-2xl border-b-8 border-blue-600 max-w-md w-full text-center transform scale-100">
+            <div class="bg-white p-8 rounded-2xl shadow-2xl border-b-8 border-blue-600 max-w-md w-full text-center transform scale-100 max-h-screen overflow-y-auto">
                 <h1 class="text-5xl font-black text-white title-text mb-2 tracking-tighter">MRT DASH</h1>
                 <p class="text-gray-600 font-semibold mb-6 uppercase tracking-widest text-sm">Manila Commuter Rush</p>
                 
@@ -68,11 +68,6 @@
                         <li><span class="font-bold text-blue-600">← / →</span> or <span class="font-bold text-blue-600">Swipe</span> to change lanes</li>
                         <li><span class="font-bold text-blue-600">↑</span> or <span class="font-bold text-blue-600">Swipe Up</span> to jump</li>
                     </ul>
-                    <p class="text-sm text-blue-800 font-bold mb-2">POWER-UPS:</p>
-                    <ul class="text-sm text-gray-700 space-y-1">
-                        <li>🟡 <span class="font-bold text-yellow-600">Shield:</span> Invincibility (8s)</li>
-                        <li>🥤 <span class="font-bold text-orange-600">Taho:</span> 2x Distance Score (10s)</li>
-                    </ul>
                 </div>
 
                 <!-- Add Player Name Input -->
@@ -80,13 +75,13 @@
                     <input type="text" id="player-name" placeholder="Enter your name..." class="w-full px-4 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-600 font-bold text-center text-gray-700" maxlength="12">
                 </div>
 
-                <!-- Leaderboard (Hidden initially until data loads) -->
+                <!-- Leaderboard -->
                 <div class="hidden leaderboard-container mb-4 bg-yellow-50 rounded-lg p-3 border border-yellow-200">
                     <p class="text-sm text-yellow-800 font-bold mb-2 flex items-center justify-center gap-2">
                         <span>🏆</span> TOP COMMUTERS <span>🏆</span>
                     </p>
                     <ul class="leaderboard-list text-sm text-gray-700 space-y-1 text-left">
-                        <!-- Scores injected here -->
+                        <li class="text-center text-gray-500 italic py-2">Loading scores...</li>
                     </ul>
                 </div>
 
@@ -98,12 +93,12 @@
 
         <!-- Game Over Screen -->
         <div id="game-over-screen" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-red-900/80 backdrop-blur-md pointer-events-auto">
-            <div class="bg-white p-8 rounded-2xl shadow-2xl border-b-8 border-red-600 max-w-md w-full text-center">
+            <div class="bg-white p-8 rounded-2xl shadow-2xl border-b-8 border-red-600 max-w-md w-full text-center max-h-screen overflow-y-auto">
                 <h2 class="text-5xl font-black text-red-600 mb-2 uppercase tracking-tighter">Busted!</h2>
                 <p class="text-gray-600 font-bold mb-2">You hit an obstacle on the tracks.</p>
 
                 <!-- Gemini AI Feature: Dynamic Tito/Tita Roast -->
-                <div class="mb-6 bg-red-50 p-3 rounded-lg border border-red-200 min-h-[60px] flex items-center justify-center">
+                <div class="mb-4 bg-red-50 p-3 rounded-lg border border-red-200 min-h-[60px] flex items-center justify-center">
                     <p id="game-over-roast" class="text-sm text-red-800 font-medium italic">🎙️ Wait lang, getting Tito's reaction... 🎙️</p>
                 </div>
 
@@ -124,7 +119,7 @@
                         <span>🏆</span> TOP COMMUTERS <span>🏆</span>
                     </p>
                     <ul class="leaderboard-list text-sm text-gray-700 space-y-1 text-left">
-                        <!-- Scores injected here -->
+                        <li class="text-center text-gray-500 italic py-2">Loading scores...</li>
                     </ul>
                 </div>
 
@@ -141,17 +136,25 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Environment variables provided by Canvas
+        // SMART TOGGLE: Detects if running in Canvas preview or live on GitHub
+        const isCanvas = typeof __firebase_config !== 'undefined' && __firebase_config;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = {
-  apiKey: "AIzaSyBn3hHC3k6xEFuIiWIXbohfNgBi08xbrCQ",
-  authDomain: "mrt-dash.firebaseapp.com",
-  projectId: "mrt-dash",
-  storageBucket: "mrt-dash.firebasestorage.app",
-  messagingSenderId: "811744197055",
-  appId: "1:811744197055:web:fecd91b829b0cc4ac2c90a"
-};
         
+        const firebaseConfig = isCanvas ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyBn3hHC3k6xEFuIiWIXbohfNgBi08xbrCQ",
+            authDomain: "mrt-dash.firebaseapp.com",
+            projectId: "mrt-dash",
+            storageBucket: "mrt-dash.firebasestorage.app",
+            messagingSenderId: "811744197055",
+            appId: "1:811744197055:web:fecd91b829b0cc4ac2c90a"
+        };
+        
+        // Helper function to get the correct database path depending on environment
+        function getLeaderboardRef(db) {
+            if (isCanvas) return collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            return collection(db, 'leaderboard');
+        }
+
         if (firebaseConfig) {
             const app = initializeApp(firebaseConfig);
             const db = getFirestore(app);
@@ -169,7 +172,7 @@
                     const user = auth.currentUser;
                     if (!user) return;
 
-                    const colRef = collection(db,'leaderboard');
+                    const colRef = getLeaderboardRef(db);
                     
                     // Fetch all docs and compute leaderboard top 5 
                     onSnapshot(colRef, (snapshot) => {
@@ -180,16 +183,18 @@
                         
                         // Sort by score descending in memory
                         scores.sort((a, b) => b.score - a.score);
-                        
-                        // Get top 5
                         const topScores = scores.slice(0, 5);
                         window.updateLeaderboardUI(topScores);
+                        
                     }, (error) => {
                         console.error("Error fetching leaderboard:", error);
+                        // Show error visually to help debugging
+                        window.updateLeaderboardUI([], `⚠️ Database Error: ${error.message}`);
                     });
 
                 } catch (e) {
                     console.error("Firebase Auth Error:", e);
+                    window.updateLeaderboardUI([], "⚠️ Auth Error: Make sure Anonymous Auth is enabled!");
                 }
             };
 
@@ -198,9 +203,7 @@
                 if (!user) return; // Guard operation
                 
                 try {
-                    // FIXED: Now points directly to the 'leaderboard' collection
-                    const colRef = collection(db, 'leaderboard'); 
-                    
+                    const colRef = getLeaderboardRef(db);
                     await addDoc(colRef, {
                         playerName: playerName || 'Commuter',
                         score: score,
@@ -273,35 +276,46 @@
         const commuterVibeEl = document.getElementById('commuter-vibe');
         const gameOverRoastEl = document.getElementById('game-over-roast');
 
-        // Leaderboard UI Updater (called from Firebase Module)
-        window.updateLeaderboardUI = (scores) => {
+        // Leaderboard UI Updater
+        window.updateLeaderboardUI = (scores, errorMsg = null) => {
             const containers = document.querySelectorAll('.leaderboard-container');
             const lists = document.querySelectorAll('.leaderboard-list');
             
+            // We always remove hidden now, so the user knows it's trying to load
+            containers.forEach(c => c.classList.remove('hidden'));
+            
+            if (errorMsg) {
+                // Display error state if Firebase is misconfigured
+                lists.forEach(l => l.innerHTML = `<li class="text-red-500 font-bold text-center py-2 text-xs">${errorMsg}</li>`);
+                return;
+            }
+
             if (scores.length > 0) {
-                containers.forEach(c => c.classList.remove('hidden'));
-                
                 const html = scores.map((s, index) => `
                     <li class="flex justify-between items-center border-b border-yellow-200/50 py-1 last:border-0">
                         <span class="font-bold truncate w-2/3">#${index + 1} ${s.playerName || 'Anonymous'}</span>
                         <span class="font-black text-blue-600">${s.score}m</span>
                     </li>
                 `).join('');
-                
                 lists.forEach(l => l.innerHTML = html);
+            } else {
+                // Display empty state if no one has played yet
+                lists.forEach(l => l.innerHTML = `<li class="text-gray-500 font-bold text-center py-2">No scores yet! Be the first!</li>`);
             }
         };
 
         // --- Gemini API Logic ---
         async function callGeminiAPI(prompt) {
-            const apiKey = "AIzaSyBZP_1kAbxF9i7tx04YcZf2tSGv07v1SMo"; // Handled automatically by Canvas
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+            // NOTE: Add your own Gemini API key inside the quotes if hosting outside Canvas!
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             
+            // If the key is missing (because it's hosted elsewhere without a key), just return null gracefully
+            if (!apiKey && typeof __firebase_config === 'undefined') return null;
+
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 0.8, // Slightly creative
-                }
+                systemInstruction: { parts: [{ text: "You are a funny Filipino assistant." }] }
             };
 
             try {
@@ -310,12 +324,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                
                 const result = await response.json();
-                if (result.candidates && result.candidates[0] && result.candidates[0].content) {
-                    return result.candidates[0].content.parts[0].text;
-                }
-                return null;
+                return result.candidates?.[0]?.content?.parts?.[0]?.text || null;
             } catch (error) {
                 console.error("Gemini API Error:", error);
                 return null;
@@ -326,13 +336,11 @@
             commuterVibeEl.innerText = "✨ Consulting the Quiapo fortune tellers... ✨";
             commuterVibeEl.classList.add("animate-pulse");
             
-            const prompt = `Act as a funny Filipino commuter fortune teller. Give a 1-sentence funny 'commuter fortune' or 'vibe check' for someone about to run to catch the MRT in Manila. Keep it very short (max 15 words) and use Taglish. Example: 'Wag kalimutan ang payong, uulan ng kamalasan today!' or 'Pila pa lang pagod ka na, fighting!'`;
-            
+            const prompt = `Give a 1-sentence funny 'commuter fortune' or 'vibe check' for someone about to run to catch the MRT in Manila. Keep it very short (max 15 words) and use Taglish. Example: 'Wag kalimutan ang payong, uulan ng kamalasan today!'`;
             const responseText = await callGeminiAPI(prompt);
             
             commuterVibeEl.classList.remove("animate-pulse");
             if (responseText) {
-                // Clean up quotes if the LLM adds them
                 commuterVibeEl.innerText = `"${responseText.replace(/^["']|["']$/g, '').trim()}"`;
             } else {
                 commuterVibeEl.innerText = '"Bawal tamarin, may pasok pa. Takbo!"';
@@ -342,8 +350,7 @@
         async function generateGameOverRoast(finalScore, finalTickets) {
             gameOverRoastEl.innerText = "🎙️ Wait lang, getting Tito's reaction... 🎙️";
             
-            const prompt = `Act as a sarcastic but loving Filipino Tito/Tita or bystander. The player just died in an MRT running game with a distance of ${finalScore} meters and collected ${finalTickets} Beep cards. Give a 1-sentence funny reaction to their performance. Taglish is preferred. Max 20 words. Example: 'Sus, ${finalScore}m lang? Mas malayo pa nilakad ko nung 90s!'`;
-            
+            const prompt = `The player just died in an MRT running game with a distance of ${finalScore} meters and collected ${finalTickets} Beep cards. Give a 1-sentence funny sarcastic reaction. Taglish is preferred. Max 20 words. Example: 'Sus, ${finalScore}m lang? Mas malayo pa nilakad ko nung 90s!'`;
             const responseText = await callGeminiAPI(prompt);
             
             if (responseText) {
@@ -358,7 +365,7 @@
             // Scene Setup
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0xff9966); // Warm Manila sunset
-            scene.fog = new THREE.Fog(0xff9966, 40, 100); // Extended fog distance
+            scene.fog = new THREE.Fog(0xff9966, 40, 100);
 
             // Camera Setup
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -371,11 +378,11 @@
             renderer.shadowMap.enabled = true;
             document.getElementById('game-container').appendChild(renderer.domElement);
 
-            // Lighting (Warmer sunset lighting)
-            const ambientLight = new THREE.AmbientLight(0x667799, 0.8); // Cool blue-ish shadows
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x667799, 0.8);
             scene.add(ambientLight);
 
-            const dirLight = new THREE.DirectionalLight(0xffddaa, 0.8); // Warm orange sun
+            const dirLight = new THREE.DirectionalLight(0xffddaa, 0.8);
             dirLight.position.set(-15, 20, 10);
             dirLight.castShadow = true;
             dirLight.shadow.camera.top = 20;
@@ -392,34 +399,29 @@
             window.addEventListener('resize', onWindowResize, false);
             setupControls();
             
-            // Initial render before start
             renderer.render(scene, camera);
-
-            // Fetch initial vibe check
             generateVibeCheck();
         }
 
         function createEnvironment() {
-            // 1. Ground / Road (EDSA below)
+            // 1. Ground / Road
             const groundGeo = new THREE.PlaneGeometry(200, 200);
-            const groundMat = new THREE.MeshLambertMaterial({ color: 0x2a2a2a }); // Dark asphalt
+            const groundMat = new THREE.MeshLambertMaterial({ color: 0x2a2a2a }); 
             const ground = new THREE.Mesh(groundGeo, groundMat);
             ground.rotation.x = -Math.PI / 2;
             ground.position.y = -10;
             scene.add(ground);
 
-            // Moving road markings (Dashed white lines)
+            // Moving road markings
             const lineGeo = new THREE.PlaneGeometry(0.4, 4);
             const lineMat = new THREE.MeshBasicMaterial({ color: 0xdddddd });
             for (let i = 0; i < 15; i++) {
-                // Left lane divider
                 let lineL = new THREE.Mesh(lineGeo, lineMat);
                 lineL.rotation.x = -Math.PI / 2;
                 lineL.position.set(-4, -9.9, -i * 12);
                 scene.add(lineL);
                 roadLines.push(lineL);
 
-                // Right lane divider
                 let lineR = new THREE.Mesh(lineGeo, lineMat);
                 lineR.rotation.x = -Math.PI / 2;
                 lineR.position.set(4, -9.9, -i * 12);
@@ -427,7 +429,7 @@
                 roadLines.push(lineR);
             }
 
-            // 2. Elevated Track Base (Concrete)
+            // 2. Track Base
             const trackGeo = new THREE.BoxGeometry(laneWidth * 3.5, 1, 120);
             const trackMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
             const track = new THREE.Mesh(trackGeo, trackMat);
@@ -436,7 +438,7 @@
             track.receiveShadow = true;
             scene.add(track);
 
-            // 3. Track Side Barriers (Parapets)
+            // 3. Track Barriers
             const barrierGeo = new THREE.BoxGeometry(0.4, 1.2, 120);
             const barrierMat = new THREE.MeshLambertMaterial({ color: 0x666666 });
             
@@ -448,17 +450,17 @@
             rightBarrier.position.set(laneWidth * 1.8, 0.1, -30);
             scene.add(rightBarrier);
 
-            // 4. Concrete Pillars supporting the track
+            // 4. Pillars
             const pillarGeo = new THREE.CylinderGeometry(1.5, 1.5, 10, 16);
             const pillarMat = new THREE.MeshLambertMaterial({ color: 0x5a5a5a });
             for (let i = 0; i < 10; i++) {
                 const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-                pillar.position.set(0, -5.5, -i * 20); // Spans from ground to track
+                pillar.position.set(0, -5.5, -i * 20); 
                 scene.add(pillar);
                 pillars.push(pillar);
             }
 
-            // 5. Rails (Dark iron lines)
+            // 5. Rails
             const railGeo = new THREE.BoxGeometry(0.1, 0.1, 120);
             const railMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
             for (let lane = -1; lane <= 1; lane++) {
@@ -471,7 +473,7 @@
                 scene.add(rightRail);
             }
 
-            // 6. Create initial sleepers
+            // 6. Sleepers
             const sleeperGeo = new THREE.BoxGeometry(laneWidth * 3.2, 0.05, 0.4);
             const sleeperMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
             
@@ -482,30 +484,29 @@
                 sleepers.push(sleeper);
             }
 
-            // 7. Background City Buildings
+            // 7. Background Buildings
             const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
             const buildingMats = [
                 new THREE.MeshLambertMaterial({ color: 0x9ca3af }),
                 new THREE.MeshLambertMaterial({ color: 0xd1d5db }),
-                new THREE.MeshLambertMaterial({ color: 0x4b5563 }), // Darker gray
-                new THREE.MeshLambertMaterial({ color: 0x1f2937 })  // Almost black silhouette
+                new THREE.MeshLambertMaterial({ color: 0x4b5563 }), 
+                new THREE.MeshLambertMaterial({ color: 0x1f2937 })  
             ];
 
             for (let i = 0; i < 35; i++) {
                 const mat = buildingMats[Math.floor(Math.random() * buildingMats.length)];
                 const b = new THREE.Mesh(buildingGeo, mat);
                 
-                // Buildings must be much taller to reach up from the ground (-10)
                 const w = 4 + Math.random() * 8;
                 const h = 25 + Math.random() * 40; 
                 const d = 4 + Math.random() * 8;
                 b.scale.set(w, h, d);
                 
                 const side = Math.random() > 0.5 ? 1 : -1;
-                const xPos = side * (15 + Math.random() * 20); // Pushed further out
+                const xPos = side * (15 + Math.random() * 20); 
                 const zPos = 10 - Math.random() * 100;
                 
-                b.position.set(xPos, -10 + h/2, zPos); // Base rests on the ground at -10
+                b.position.set(xPos, -10 + h/2, zPos); 
                 scene.add(b);
                 buildings.push(b);
             }
@@ -514,9 +515,9 @@
         function createPlayer() {
             player = new THREE.Group();
 
-            const skinMat = new THREE.MeshLambertMaterial({ color: 0xffd3b6 }); // Skin tone
-            const shirtMat = new THREE.MeshLambertMaterial({ color: 0x1e40af }); // Blue shirt
-            const pantsMat = new THREE.MeshLambertMaterial({ color: 0x111827 }); // Dark pants
+            const skinMat = new THREE.MeshLambertMaterial({ color: 0xffd3b6 });
+            const shirtMat = new THREE.MeshLambertMaterial({ color: 0x1e40af }); 
+            const pantsMat = new THREE.MeshLambertMaterial({ color: 0x111827 }); 
 
             // Head
             const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
@@ -524,13 +525,13 @@
             playerHead.position.y = 1.65;
             playerHead.castShadow = true;
             
-            // Body (Polo shirt)
+            // Body
             const bodyGeo = new THREE.BoxGeometry(0.6, 0.8, 0.4);
             playerBody = new THREE.Mesh(bodyGeo, shirtMat);
             playerBody.position.y = 1.0;
             playerBody.castShadow = true;
 
-            // Limbs Helper (Pivots at the top joint)
+            // Limbs Helper
             function createLimb(width, length, depth, material) {
                 const geo = new THREE.BoxGeometry(width, length, depth);
                 geo.translate(0, -length / 2, 0); 
@@ -539,27 +540,20 @@
                 return mesh;
             }
 
-            // Arms
+            // Arms & Legs
             leftArm = createLimb(0.2, 0.7, 0.2, skinMat);
             leftArm.position.set(-0.4, 1.4, 0); 
-            
             rightArm = createLimb(0.2, 0.7, 0.2, skinMat);
             rightArm.position.set(0.4, 1.4, 0); 
-
-            // Legs
             leftLeg = createLimb(0.25, 0.8, 0.25, pantsMat);
             leftLeg.position.set(-0.15, 0.6, 0); 
-            
             rightLeg = createLimb(0.25, 0.8, 0.25, pantsMat);
             rightLeg.position.set(0.15, 0.6, 0); 
 
-            // Protective Aura (Hidden by default)
+            // Aura
             const auraGeo = new THREE.SphereGeometry(1.2, 16, 16);
             const auraMat = new THREE.MeshBasicMaterial({ 
-                color: 0xfacc15, 
-                transparent: true, 
-                opacity: 0.4,
-                wireframe: true
+                color: 0xfacc15, transparent: true, opacity: 0.4, wireframe: true
             });
             playerAura = new THREE.Mesh(auraGeo, auraMat);
             playerAura.position.y = 1.0;
@@ -579,19 +573,14 @@
 
         // --- Controls Setup ---
         function setupControls() {
-            // Keyboard
             window.addEventListener('keydown', (e) => {
                 if (!isGameRunning) return;
-                
                 if (e.code === 'ArrowLeft' || e.code === 'KeyA') moveLane(-1);
                 else if (e.code === 'ArrowRight' || e.code === 'KeyD') moveLane(1);
                 else if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') jump();
             });
 
-            // Touch / Swipe
-            let touchStartX = 0;
-            let touchStartY = 0;
-
+            let touchStartX = 0, touchStartY = 0;
             window.addEventListener('touchstart', (e) => {
                 touchStartX = e.changedTouches[0].screenX;
                 touchStartY = e.changedTouches[0].screenY;
@@ -599,12 +588,8 @@
 
             window.addEventListener('touchend', (e) => {
                 if (!isGameRunning) return;
-                
-                let touchEndX = e.changedTouches[0].screenX;
-                let touchEndY = e.changedTouches[0].screenY;
-                
-                let deltaX = touchEndX - touchStartX;
-                let deltaY = touchEndY - touchStartY;
+                let deltaX = e.changedTouches[0].screenX - touchStartX;
+                let deltaY = e.changedTouches[0].screenY - touchStartY;
 
                 if (Math.abs(deltaX) > Math.abs(deltaY)) {
                     if (Math.abs(deltaX) > 30) {
@@ -612,7 +597,7 @@
                         else moveLane(-1); 
                     }
                 } else {
-                    if (deltaY < -30) jump(); // Swipe Up
+                    if (deltaY < -30) jump(); 
                 }
             }, {passive: false});
         }
@@ -637,7 +622,6 @@
             if (frames % spawnRate !== 0) return;
 
             let obstacleCount = 1;
-            // Introduce double obstacles as score goes up to block multiple lanes
             if (score > 100 && Math.random() < 0.25) obstacleCount = 2;
             if (score > 300 && Math.random() < 0.45) obstacleCount = 2;
 
@@ -706,7 +690,6 @@
         }
 
         function spawnPowerUp() {
-            // Power-ups spawn much less frequently than cards
             if (frames % 300 !== 0) return;
             if (Math.random() > 0.5) return; 
 
@@ -715,7 +698,6 @@
             let item;
 
             if (type === 'taho') {
-                // Taho Cup (White cup with brown syrup)
                 item = new THREE.Group();
                 const cupGeo = new THREE.CylinderGeometry(0.3, 0.2, 0.6, 16);
                 const cupMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
@@ -730,7 +712,6 @@
                 item.add(syrup);
                 item.userData = { type: 'taho', hitBox: new THREE.Box3() };
             } else {
-                // Shield Orb
                 const orbGeo = new THREE.SphereGeometry(0.4, 16, 16);
                 const orbMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
                 item = new THREE.Mesh(orbGeo, orbMat);
@@ -747,31 +728,27 @@
         function activatePowerUp(type) {
             if (type === 'shield') {
                 isInvincible = true;
-                shieldTimer = 480; // 8 seconds at ~60fps
+                shieldTimer = 480; 
                 playerAura.visible = true;
                 shieldStatus.classList.remove('hidden');
             } else if (type === 'taho') {
                 scoreMultiplier = 2;
-                tahoTimer = 600; // 10 seconds at ~60fps
+                tahoTimer = 600; 
                 tahoStatus.classList.remove('hidden');
             }
         }
 
         // --- Core Game Loop ---
         function updatePhysics() {
-            // 1. Move Player
             player.position.x += (targetX - player.position.x) * 0.15;
 
-            // 2. Jump Physics & Animation
             if (isJumping) {
                 player.position.y += yVelocity;
                 yVelocity -= gravity;
-
                 leftArm.rotation.x = -Math.PI / 4;
                 rightArm.rotation.x = -Math.PI / 4;
                 leftLeg.rotation.x = Math.PI / 6;
                 rightLeg.rotation.x = -Math.PI / 6;
-
                 if (player.position.y <= basePlayerY) {
                     player.position.y = basePlayerY;
                     isJumping = false;
@@ -786,32 +763,27 @@
                 rightLeg.rotation.x = Math.sin(runCycle) * 0.8;
             }
 
-            // 3. Move Environment
             sleepers.forEach(sleeper => {
                 sleeper.position.z += speed;
                 if (sleeper.position.z > 5) sleeper.position.z -= 60;
             });
-
             pillars.forEach(pillar => {
                 pillar.position.z += speed;
-                if (pillar.position.z > 15) pillar.position.z -= 200; // Loop pillars back
+                if (pillar.position.z > 15) pillar.position.z -= 200; 
             });
-
             roadLines.forEach(line => {
                 line.position.z += speed;
-                if (line.position.z > 15) line.position.z -= 180; // Loop dashed lines
+                if (line.position.z > 15) line.position.z -= 180; 
             });
-
             buildings.forEach(b => {
                 b.position.z += speed * 0.5;
                 if (b.position.z > 20) {
                     b.position.z -= 100;
                     b.scale.y = 25 + Math.random() * 40;
-                    b.position.y = -10 + b.scale.y / 2; // Keep base on ground
+                    b.position.y = -10 + b.scale.y / 2; 
                 }
             });
 
-            // Strict manual Hitbox Setup to completely fix phantom collisions
             const hitBoxWidth = 0.8;
             const hitBoxHeight = 1.8;
             const hitBoxDepth = 0.6;
@@ -821,7 +793,6 @@
                 new THREE.Vector3(player.position.x + hitBoxWidth/2, player.position.y + hitBoxHeight, player.position.z + hitBoxDepth/2)
             );
 
-            // 4. Update Obstacles
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 const obs = obstacles[i];
                 obs.position.z += (obs.userData.type === 'train') ? speed * 1.5 : speed;
@@ -832,20 +803,17 @@
                     gameOver();
                     return;
                 }
-
                 if (obs.position.z > 10) {
                     scene.remove(obs);
                     obstacles.splice(i, 1);
                 }
             }
 
-            // 5. Update Collectibles
             for (let i = collectibles.length - 1; i >= 0; i--) {
                 const card = collectibles[i];
                 card.position.z += speed; 
                 card.rotation.y += 0.05;  
                 card.userData.hitBox.setFromObject(card);
-                
                 if (playerBox.intersectsBox(card.userData.hitBox)) {
                     tickets++;
                     ticketDisplay.innerText = tickets;
@@ -853,14 +821,12 @@
                     collectibles.splice(i, 1);
                     continue; 
                 }
-                
                 if (card.position.z > 10) {
                     scene.remove(card);
                     collectibles.splice(i, 1);
                 }
             }
 
-            // 6. Update Power-ups
             for (let i = powerUps.length - 1; i >= 0; i--) {
                 const pu = powerUps[i];
                 pu.position.z += speed;
@@ -868,30 +834,25 @@
                 if (pu.userData.type === 'shield') {
                     pu.scale.setScalar(1 + Math.sin(frames * 0.1) * 0.1);
                 }
-                
                 pu.userData.hitBox.setFromObject(pu);
-                
                 if (playerBox.intersectsBox(pu.userData.hitBox)) {
                     activatePowerUp(pu.userData.type);
                     scene.remove(pu);
                     powerUps.splice(i, 1);
                     continue;
                 }
-                
                 if (pu.position.z > 10) {
                     scene.remove(pu);
                     powerUps.splice(i, 1);
                 }
             }
 
-            // 7. Handle Power-up Timers
             if (isInvincible) {
                 shieldTimer--;
                 playerAura.rotation.y += 0.05;
                 playerAura.rotation.z += 0.05;
                 shieldTimerDisplay.innerText = Math.ceil(shieldTimer / 60);
-                
-                if (shieldTimer < 120) playerAura.visible = frames % 10 < 5; // Blink warning
+                if (shieldTimer < 120) playerAura.visible = frames % 10 < 5; 
                 if (shieldTimer <= 0) {
                     isInvincible = false;
                     playerAura.visible = false;
@@ -911,34 +872,27 @@
 
         function animate() {
             if (!isGameRunning) return; 
-
             animationId = requestAnimationFrame(animate);
             frames++;
-            
-            speed += 0.00015; // Increased acceleration
-            if (speed > 1.2) speed = 1.2; // Speed cap to maintain playability
-
+            speed += 0.00015; 
+            if (speed > 1.2) speed = 1.2; 
             if (frames % 5 === 0) {
                 score += (1 * scoreMultiplier); 
                 scoreDisplay.innerText = score + ' m';
             }
-
             spawnObstacle();
             spawnCollectible();
             spawnPowerUp();
             updatePhysics();
-
             renderer.render(scene, camera);
         }
 
-        // --- Game Flow Controls ---
         function startGame() {
             startScreen.classList.add('opacity-0');
             setTimeout(() => {
                 startScreen.classList.add('hidden');
                 startScreen.classList.remove('opacity-0');
             }, 300);
-            
             scoreContainer.classList.remove('hidden');
             resetGame();
             isGameRunning = true;
@@ -946,9 +900,8 @@
         }
 
         function restartGame() {
-            if (isGameRunning) return; // Prevent duplicate clicks
-            cancelAnimationFrame(animationId); // Clear any stalled game loops
-            
+            if (isGameRunning) return; 
+            cancelAnimationFrame(animationId); 
             gameOverScreen.classList.add('hidden');
             resetGame();
             isGameRunning = true;
@@ -961,14 +914,11 @@
             finalScoreDisplay.innerText = score + ' m';
             finalTicketDisplay.innerText = tickets;
             
-            // This is where the error occurred
             if(gameOverScreen) {
                 gameOverScreen.classList.remove('hidden');
-                // Trigger the Gemini Roast
                 generateGameOverRoast(score, tickets);
             }
             
-            // Save score to leaderboard
             if (window.saveScoreToCloud && score > 0) {
                 const nameInput = document.getElementById('player-name');
                 let pName = nameInput ? nameInput.value.trim() : "";
@@ -990,7 +940,6 @@
             targetX = 0;
             isJumping = false;
             yVelocity = 0;
-            
             isInvincible = false;
             shieldTimer = 0;
             scoreMultiplier = 1;
@@ -1012,13 +961,8 @@
             powerUps.forEach(pu => scene.remove(pu));
             powerUps = [];
             
-            sleepers.forEach((sleeper, i) => {
-                sleeper.position.z = -i * 3;
-            });
-
-            pillars.forEach((pillar, i) => {
-                pillar.position.z = -i * 20;
-            });
+            sleepers.forEach((sleeper, i) => sleeper.position.z = -i * 3);
+            pillars.forEach((pillar, i) => pillar.position.z = -i * 20);
 
             let lineIndex = 0;
             for (let i = 0; i < 15; i++) {
